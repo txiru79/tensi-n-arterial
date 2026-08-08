@@ -1,0 +1,1153 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>Mi Tensión</title>
+<meta name="description" content="Control diario de tensión arterial y pulso">
+<meta name="theme-color" content="#2B5D63">
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Mi Tensión">
+<style>
+  :root{
+    --bg:#F5F7F6;
+    --surface:#FFFFFF;
+    --surface-alt:#EAF0EF;
+    --primary:#2B5D63;
+    --primary-dark:#1D3F44;
+    --primary-light:#E4EDEC;
+    --text:#1E2A2A;
+    --text-secondary:#5C6B6B;
+    --border:#DCE4E3;
+    --danger:#C2402F;
+
+    --c-baja:#3B5FCC;
+    --c-optima:#2F8A45;
+    --c-elevada:#B4820F;
+    --c-hta1:#C96A1F;
+    --c-hta2:#C2402F;
+    --c-hta3:#7A2019;
+
+    --radius-lg:20px;
+    --radius-md:14px;
+    --radius-sm:10px;
+    --shadow: 0 2px 10px rgba(29,63,68,0.08);
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; overflow-x:hidden; width:100%; }
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    font-size:17px;
+    line-height:1.45;
+    -webkit-font-smoothing:antialiased;
+    padding-bottom:calc(78px + env(safe-area-inset-bottom));
+  }
+
+  h1,h2,h3{ margin:0 0 4px 0; color:var(--primary-dark); }
+  p{ margin:0 0 8px 0; }
+
+  button{ font-family:inherit; }
+  button:focus-visible, input:focus-visible{
+    outline:3px solid #7FB3AE;
+    outline-offset:2px;
+  }
+
+  .app{
+    max-width:480px;
+    margin:0 auto;
+    min-height:100vh;
+    overflow-x:hidden;
+    width:100%;
+  }
+
+  .topbar{
+    background:var(--primary);
+    color:#fff;
+    padding:calc(18px + env(safe-area-inset-top)) 20px 18px;
+    border-radius:0 0 22px 22px;
+    box-shadow:var(--shadow);
+  }
+  .topbar h1{
+    color:#fff;
+    font-size:23px;
+    letter-spacing:0.2px;
+  }
+  .topbar p{
+    color:#D9E7E5;
+    font-size:14px;
+    margin:0;
+  }
+
+  main{ padding:16px 12px 28px; max-width:100%; }
+
+  .panel{ display:none; }
+  .panel.active{ display:block; }
+
+  .card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius-lg);
+    padding:16px 14px;
+    margin-bottom:16px;
+    box-shadow:var(--shadow);
+    max-width:100%;
+  }
+
+  .field-label{
+    display:block;
+    font-weight:700;
+    font-size:14px;
+    color:var(--text-secondary);
+    text-transform:uppercase;
+    letter-spacing:0.4px;
+    margin-bottom:8px;
+  }
+
+  input[type="date"], input[type="month"]{
+    width:100%;
+    max-width:100%;
+    font-size:17px;
+    padding:12px 10px;
+    border-radius:var(--radius-sm);
+    border:1.5px solid var(--border);
+    background:var(--surface);
+    color:var(--text);
+  }
+
+  .segmented{
+    display:flex;
+    gap:6px;
+    margin-top:10px;
+  }
+  .seg-btn{
+    flex:1;
+    min-width:0;
+    padding:12px 2px;
+    border-radius:var(--radius-sm);
+    border:1.5px solid var(--border);
+    background:var(--surface);
+    color:var(--text);
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .seg-btn[aria-checked="true"]{
+    background:var(--primary);
+    border-color:var(--primary);
+    color:#fff;
+  }
+
+  .stat-grid{
+    display:grid;
+    grid-template-columns:1fr;
+    gap:12px;
+    margin-top:14px;
+    max-width:100%;
+  }
+  .stat-block{
+    background:var(--surface-alt);
+    border-radius:var(--radius-md);
+    padding:12px;
+    max-width:100%;
+  }
+  .stat-block.full{ grid-column:1 / -1; }
+  .stat-block label{
+    display:block;
+    font-size:13px;
+    font-weight:700;
+    color:var(--text-secondary);
+    margin-bottom:6px;
+  }
+  .stat-unit{
+    font-size:12px;
+    color:var(--text-secondary);
+    font-weight:400;
+  }
+  .stepper{
+    display:flex;
+    align-items:center;
+    flex-wrap:wrap;
+    justify-content:center;
+    gap:6px;
+  }
+  .step-btn{
+    width:42px;
+    height:42px;
+    flex:0 0 42px;
+    border-radius:10px;
+    border:none;
+    background:var(--primary);
+    color:#fff;
+    font-size:22px;
+    line-height:1;
+    cursor:pointer;
+    flex-shrink:0;
+  }
+  .step-btn:active{ background:var(--primary-dark); }
+  .stat-value{
+    flex:1 1 0%;
+    width:0;
+    min-width:70px;
+    text-align:center;
+    font-size:clamp(24px, 9vw, 36px);
+    letter-spacing:1px;
+    font-weight:800;
+    border:none;
+    background:transparent;
+    color:var(--text);
+    padding:4px 0;
+    -moz-appearance:textfield;
+  }
+  .stat-value::-webkit-outer-spin-button,
+  .stat-value::-webkit-inner-spin-button{
+    -webkit-appearance:none; margin:0;
+  }
+
+  .status-card{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    padding:16px;
+    border-radius:var(--radius-lg);
+    margin-top:16px;
+    border:2px solid var(--border);
+    background:var(--surface-alt);
+    transition:background 0.2s, border-color 0.2s;
+  }
+  .status-dot{
+    width:22px;
+    height:22px;
+    border-radius:50%;
+    background:#C7D2D1;
+    flex-shrink:0;
+    box-shadow:0 0 0 6px rgba(0,0,0,0.03);
+  }
+  .status-label{
+    display:block;
+    font-size:20px;
+    font-weight:800;
+    color:var(--text);
+  }
+  .status-desc{
+    display:block;
+    font-size:14px;
+    color:var(--text-secondary);
+    margin-top:2px;
+  }
+
+  .error-box{
+    margin-top:12px;
+    padding:12px 14px;
+    border-radius:var(--radius-sm);
+    background:#FBEAE7;
+    border:1.5px solid #E7B8B0;
+    color:#8C2E20;
+    font-size:14px;
+    display:none;
+  }
+  .error-box.show{ display:block; }
+  .error-box ul{ margin:0; padding-left:18px; }
+
+  .btn-primary{
+    width:100%;
+    padding:16px;
+    border-radius:14px;
+    border:none;
+    background:var(--primary);
+    color:#fff;
+    font-size:18px;
+    font-weight:700;
+    margin-top:16px;
+    cursor:pointer;
+  }
+  .btn-primary:active{ background:var(--primary-dark); }
+  .btn-secondary{
+    width:100%;
+    padding:14px;
+    border-radius:14px;
+    border:1.5px solid var(--border);
+    background:var(--surface);
+    color:var(--text-secondary);
+    font-size:15px;
+    font-weight:600;
+    margin-top:10px;
+    cursor:pointer;
+  }
+
+  .disclaimer{
+    font-size:13px;
+    color:var(--text-secondary);
+    text-align:center;
+    padding:0 8px;
+  }
+
+  /* Historial */
+  .date-group{ margin-bottom:18px; }
+  .date-group h3{
+    font-size:15px;
+    color:var(--text-secondary);
+    font-weight:700;
+    text-transform:capitalize;
+    margin-bottom:8px;
+  }
+  .entry{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius-md);
+    padding:12px 14px;
+    margin-bottom:8px;
+    box-shadow:var(--shadow);
+  }
+  .entry-dot{
+    width:14px;
+    height:14px;
+    border-radius:50%;
+    flex-shrink:0;
+  }
+  .entry-main{ flex:1; min-width:0; }
+  .entry-horario{
+    font-size:13px;
+    font-weight:700;
+    color:var(--text-secondary);
+  }
+  .entry-values{
+    font-size:19px;
+    font-weight:700;
+    color:var(--text);
+  }
+  .entry-cat{
+    font-size:13px;
+    font-weight:600;
+  }
+  .entry-actions{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+  }
+  .icon-btn{
+    border:none;
+    background:var(--surface-alt);
+    color:var(--text-secondary);
+    font-size:13px;
+    font-weight:600;
+    padding:7px 10px;
+    border-radius:8px;
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .icon-btn.danger{ color:var(--danger); }
+
+  .empty-msg{
+    text-align:center;
+    color:var(--text-secondary);
+    padding:40px 10px;
+  }
+
+  .legend{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-top:14px;
+  }
+  .legend-item{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    font-size:12px;
+    color:var(--text-secondary);
+  }
+  .legend-dot{
+    width:10px;
+    height:10px;
+    border-radius:50%;
+  }
+
+  /* Exportar */
+  .month-picker{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    margin-top:6px;
+  }
+  .month-nav{
+    width:44px;
+    height:44px;
+    flex:0 0 44px;
+    border-radius:12px;
+    border:none;
+    background:var(--primary);
+    color:#fff;
+    font-size:24px;
+    line-height:1;
+    cursor:pointer;
+  }
+  .month-nav:disabled{
+    background:var(--border);
+    color:var(--text-secondary);
+    cursor:default;
+  }
+  .month-label{
+    flex:1;
+    text-align:center;
+    font-size:19px;
+    font-weight:800;
+    color:var(--text);
+    text-transform:capitalize;
+  }
+  .summary-row{
+    display:flex;
+    justify-content:space-between;
+    padding:8px 0;
+    border-bottom:1px solid var(--border);
+    font-size:15px;
+  }
+  .summary-row:last-child{ border-bottom:none; }
+  .summary-row span:first-child{ color:var(--text-secondary); }
+  .summary-row span:last-child{ font-weight:700; }
+
+  /* Tab bar */
+  .tabbar{
+    position:fixed;
+    left:0; right:0; bottom:0;
+    max-width:480px;
+    margin:0 auto;
+    display:flex;
+    background:var(--surface);
+    border-top:1px solid var(--border);
+    padding:8px 8px calc(8px + env(safe-area-inset-bottom));
+    box-shadow:0 -2px 10px rgba(29,63,68,0.08);
+  }
+  .tab-btn{
+    flex:1;
+    background:none;
+    border:none;
+    padding:8px 4px;
+    text-align:center;
+    color:var(--text-secondary);
+    font-size:13px;
+    font-weight:600;
+    border-radius:12px;
+    cursor:pointer;
+  }
+  .tab-btn .tab-icon{
+    display:block;
+    font-size:22px;
+    margin-bottom:2px;
+  }
+  .tab-btn.active{
+    color:var(--primary);
+    background:var(--primary-light);
+  }
+
+  .toast{
+    position:fixed;
+    left:50%;
+    bottom:calc(90px + env(safe-area-inset-bottom));
+    transform:translateX(-50%);
+    background:var(--primary-dark);
+    color:#fff;
+    padding:12px 20px;
+    border-radius:30px;
+    font-size:15px;
+    font-weight:600;
+    box-shadow:0 4px 14px rgba(0,0,0,0.2);
+    z-index:50;
+    max-width:88%;
+    text-align:center;
+  }
+  .toast[hidden]{ display:none; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header class="topbar">
+    <h1>Mi Tensión</h1>
+    <p>Registro diario de tensión y pulso</p>
+  </header>
+
+  <main>
+
+    <!-- REGISTRAR -->
+    <section id="tab-registrar" class="panel active">
+      <div class="card">
+        <label class="field-label" for="fecha">Fecha</label>
+        <input type="date" id="fecha">
+
+        <label class="field-label" style="margin-top:16px;">Momento del día</label>
+        <div class="segmented" id="segmentedHorario" role="radiogroup" aria-label="Momento del día">
+          <button type="button" class="seg-btn" data-horario="manana" role="radio" aria-checked="false">☀️ Mañana</button>
+          <button type="button" class="seg-btn" data-horario="tarde" role="radio" aria-checked="false">🌤️ Tarde</button>
+          <button type="button" class="seg-btn" data-horario="noche" role="radio" aria-checked="false">🌙 Noche</button>
+        </div>
+
+        <div class="stat-grid">
+          <div class="stat-block">
+            <label for="sistolica">Sistólica (ALTA) <span class="stat-unit">mmHg</span></label>
+            <div class="stepper">
+              <button type="button" class="step-btn" data-target="sistolica" data-delta="-1" aria-label="Restar a sistólica">−</button>
+              <input type="number" inputmode="numeric" id="sistolica" class="stat-value" placeholder="120">
+              <button type="button" class="step-btn" data-target="sistolica" data-delta="1" aria-label="Sumar a sistólica">+</button>
+            </div>
+          </div>
+          <div class="stat-block">
+            <label for="diastolica">Diastólica (BAJA) <span class="stat-unit">mmHg</span></label>
+            <div class="stepper">
+              <button type="button" class="step-btn" data-target="diastolica" data-delta="-1" aria-label="Restar a diastólica">−</button>
+              <input type="number" inputmode="numeric" id="diastolica" class="stat-value" placeholder="80">
+              <button type="button" class="step-btn" data-target="diastolica" data-delta="1" aria-label="Sumar a diastólica">+</button>
+            </div>
+          </div>
+          <div class="stat-block full">
+            <label for="pulso">Pulso <span class="stat-unit">lpm</span></label>
+            <div class="stepper">
+              <button type="button" class="step-btn" data-target="pulso" data-delta="-1" aria-label="Restar a pulso">−</button>
+              <input type="number" inputmode="numeric" id="pulso" class="stat-value" placeholder="72">
+              <button type="button" class="step-btn" data-target="pulso" data-delta="1" aria-label="Sumar a pulso">+</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="status-card" id="statusCard">
+          <div class="status-dot" id="statusDot"></div>
+          <div>
+            <span class="status-label" id="statusLabel">Introduce tus datos</span>
+            <span class="status-desc" id="statusDesc">Rellena sistólica y diastólica para ver el resultado.</span>
+          </div>
+        </div>
+
+        <div class="error-box" id="errorBox"><ul id="errorList"></ul></div>
+
+        <button class="btn-primary" id="btnGuardar" type="button">Guardar registro</button>
+        <button class="btn-secondary" id="btnCancelarEdicion" type="button" hidden>Cancelar edición</button>
+      </div>
+
+      <p class="disclaimer">Clasificación calibrada al objetivo recomendado para 65 a 79 años (menos de 140/80 mmHg). Es orientativa. Ante dudas o valores muy altos, contacte con su médica.</p>
+    </section>
+
+    <!-- HISTORIAL -->
+    <section id="tab-historial" class="panel">
+      <div id="historialList"></div>
+      <p class="empty-msg" id="historialVacio" hidden>Todavía no hay registros guardados.</p>
+
+      <div class="card">
+        <label class="field-label">Leyenda de colores</label>
+        <p style="font-size:13px;color:var(--text-secondary);margin:-4px 0 4px;">Calibrada al objetivo para 65 a 79 años.</p>
+        <div class="legend" id="legend"></div>
+      </div>
+    </section>
+
+    <!-- EXPORTAR -->
+    <section id="tab-exportar" class="panel">
+      <div class="card">
+        <label class="field-label">Mes a exportar</label>
+        <div class="month-picker">
+          <button type="button" class="month-nav" id="mesAnterior" aria-label="Mes anterior">‹</button>
+          <span class="month-label" id="mesLabel">—</span>
+          <button type="button" class="month-nav" id="mesSiguiente" aria-label="Mes siguiente">›</button>
+        </div>
+
+        <div style="margin-top:16px;">
+          <div class="summary-row"><span>Registros guardados</span><span id="sumCount">0</span></div>
+          <div class="summary-row"><span>Media sistólica</span><span id="sumSis">—</span></div>
+          <div class="summary-row"><span>Media diastólica</span><span id="sumDia">—</span></div>
+          <div class="summary-row"><span>Media pulso</span><span id="sumPul">—</span></div>
+        </div>
+
+        <button class="btn-primary" id="btnExportar" type="button">Descargar PDF del mes</button>
+      </div>
+      <p class="disclaimer">Al tocar el botón se abre el panel para enviar el PDF por WhatsApp o correo. Si el móvil no lo permite, el PDF se abre directamente en la pantalla para guardarlo desde ahí.</p>
+    </section>
+
+  </main>
+
+  <nav class="tabbar">
+    <button class="tab-btn active" data-tab="registrar"><span class="tab-icon">📝</span>Registrar</button>
+    <button class="tab-btn" data-tab="historial"><span class="tab-icon">📋</span>Historial</button>
+    <button class="tab-btn" data-tab="exportar"><span class="tab-icon">📄</span>Exportar</button>
+  </nav>
+
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script src="./vendor/jspdf.umd.min.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  var STORAGE_KEY = "tension_readings_v1";
+  var HORARIOS = ["manana","tarde","noche"];
+  var HORARIO_LABEL = { manana:"☀️ Mañana", tarde:"🌤️ Tarde", noche:"🌙 Noche" };
+
+  // Clasificación calibrada al objetivo recomendado para 65-79 años
+  // (Guías ESH 2023 / ESC 2024): objetivo <140/80 mmHg; ideal 120-129/70-79 mmHg si se tolera bien.
+  var CATEGORIES = [
+    { key:"baja",   label:"Baja",                     color:"#3B5FCC", desc:"Vigile mareos, sobre todo al levantarse. Coméntelo con su médica si se repite." },
+    { key:"ideal",  label:"Objetivo ideal",           color:"#1E8F6F", desc:"Dentro del rango ideal para su edad." },
+    { key:"buen",   label:"Buen control",             color:"#2F8A45", desc:"Dentro del objetivo recomendado para su edad." },
+    { key:"encima", label:"Por encima del objetivo",  color:"#C96A1F", desc:"Por encima del objetivo para su edad. Coméntelo con su médica." },
+    { key:"alta",   label:"Alta",                     color:"#C2402F", desc:"Tensión alta. Contacte con su médica." },
+    { key:"muyalta",label:"Muy alta",                 color:"#7A2019", desc:"Valor muy alto. Contacte con su médica o servicio sanitario cuanto antes." }
+  ];
+
+  function severitySistolica(s){
+    if(s<90) return 0;
+    if(s<130) return 1;
+    if(s<140) return 2;
+    if(s<160) return 3;
+    if(s<180) return 4;
+    return 5;
+  }
+  function severityDiastolica(d){
+    if(d<60) return 0;
+    if(d<70) return 2;
+    if(d<80) return 1;
+    if(d<100) return 3;
+    if(d<110) return 4;
+    return 5;
+  }
+  function classify(s,d){
+    var sev = Math.max(severitySistolica(s), severityDiastolica(d));
+    return CATEGORIES[sev];
+  }
+
+  function todayStr(){
+    var d = new Date();
+    var tz = d.getTimezoneOffset()*60000;
+    return new Date(d - tz).toISOString().slice(0,10);
+  }
+  function defaultHorario(){
+    var h = new Date().getHours();
+    if(h < 13) return "manana";
+    if(h < 20) return "tarde";
+    return "noche";
+  }
+  function capitalize(str){
+    return str.charAt(0).toUpperCase() + str.slice(1);
+  }
+  function formatFechaLarga(fechaStr){
+    var d = new Date(fechaStr + "T00:00:00");
+    var texto = d.toLocaleDateString("es-ES", { weekday:"long", day:"numeric", month:"long", year:"numeric" });
+    return capitalize(texto);
+  }
+
+  function loadReadings(){
+    try{
+      var raw = localStorage.getItem(STORAGE_KEY);
+      return raw ? JSON.parse(raw) : [];
+    }catch(e){ return []; }
+  }
+  function saveReadings(arr){
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(arr));
+  }
+  function uid(){
+    return "r" + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+  }
+
+  var readings = loadReadings();
+  var editingId = null;
+  var horarioActual = defaultHorario();
+
+  // ---------- Tabs ----------
+  var tabButtons = document.querySelectorAll(".tab-btn");
+  var panels = document.querySelectorAll(".panel");
+  tabButtons.forEach(function(btn){
+    btn.addEventListener("click", function(){
+      switchTab(btn.getAttribute("data-tab"));
+    });
+  });
+  function switchTab(name){
+    tabButtons.forEach(function(b){ b.classList.toggle("active", b.getAttribute("data-tab")===name); });
+    panels.forEach(function(p){ p.classList.toggle("active", p.id === "tab-"+name); });
+    if(name === "historial") renderHistorial();
+    if(name === "exportar") renderResumenExport();
+  }
+
+  // ---------- Registrar: horario segmented ----------
+  var segBtns = document.querySelectorAll(".seg-btn");
+  function setHorario(h){
+    horarioActual = h;
+    segBtns.forEach(function(b){
+      var checked = b.getAttribute("data-horario") === h;
+      b.setAttribute("aria-checked", checked ? "true" : "false");
+    });
+  }
+  segBtns.forEach(function(b){
+    b.addEventListener("click", function(){ setHorario(b.getAttribute("data-horario")); });
+  });
+
+  // ---------- Registrar: steppers ----------
+  document.querySelectorAll(".step-btn").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      var targetId = btn.getAttribute("data-target");
+      var delta = parseInt(btn.getAttribute("data-delta"), 10);
+      var input = document.getElementById(targetId);
+      var current = parseInt(input.value, 10);
+      if(isNaN(current)) current = parseInt(input.placeholder, 10) || 0;
+      input.value = Math.max(0, current + delta);
+      updateStatusPreview();
+    });
+  });
+
+  var sistolicaInput = document.getElementById("sistolica");
+  var diastolicaInput = document.getElementById("diastolica");
+  var pulsoInput = document.getElementById("pulso");
+  [sistolicaInput, diastolicaInput, pulsoInput].forEach(function(inp){
+    inp.addEventListener("input", updateStatusPreview);
+  });
+
+  var statusCard = document.getElementById("statusCard");
+  var statusDot = document.getElementById("statusDot");
+  var statusLabel = document.getElementById("statusLabel");
+  var statusDesc = document.getElementById("statusDesc");
+
+  function updateStatusPreview(){
+    var s = parseInt(sistolicaInput.value, 10);
+    var d = parseInt(diastolicaInput.value, 10);
+    if(!s || !d){
+      statusDot.style.background = "#C7D2D1";
+      statusCard.style.borderColor = "var(--border)";
+      statusLabel.textContent = "Introduce tus datos";
+      statusDesc.textContent = "Rellena sistólica y diastólica para ver el resultado.";
+      return;
+    }
+    var cat = classify(s,d);
+    statusDot.style.background = cat.color;
+    statusCard.style.borderColor = cat.color;
+    statusLabel.textContent = cat.label;
+    statusLabel.style.color = cat.color;
+    statusDesc.textContent = cat.desc;
+  }
+
+  // ---------- Validación ----------
+  function validar(s,d,p){
+    var errores = [];
+    if(!s || s<60 || s>260) errores.push("La sistólica (ALTA) debe estar entre 60 y 260.");
+    if(!d || d<40 || d>160) errores.push("La diastólica (BAJA) debe estar entre 40 y 160.");
+    if(!p || p<30 || p>220) errores.push("El pulso debe estar entre 30 y 220.");
+    if(s && d && s<=d) errores.push("La sistólica debe ser mayor que la diastólica. Revisa los valores.");
+    return errores;
+  }
+  var errorBox = document.getElementById("errorBox");
+  var errorList = document.getElementById("errorList");
+  function mostrarErrores(errores){
+    if(errores.length === 0){
+      errorBox.classList.remove("show");
+      errorList.innerHTML = "";
+      return;
+    }
+    errorList.innerHTML = errores.map(function(e){ return "<li>"+e+"</li>"; }).join("");
+    errorBox.classList.add("show");
+  }
+
+  // ---------- Guardar ----------
+  var fechaInput = document.getElementById("fecha");
+  var btnGuardar = document.getElementById("btnGuardar");
+  var btnCancelarEdicion = document.getElementById("btnCancelarEdicion");
+
+  function resetForm(){
+    editingId = null;
+    fechaInput.value = todayStr();
+    setHorario(defaultHorario());
+    sistolicaInput.value = "";
+    diastolicaInput.value = "";
+    pulsoInput.value = "";
+    mostrarErrores([]);
+    updateStatusPreview();
+    btnGuardar.textContent = "Guardar registro";
+    btnCancelarEdicion.hidden = true;
+  }
+
+  btnCancelarEdicion.addEventListener("click", resetForm);
+
+  btnGuardar.addEventListener("click", function(){
+    var fecha = fechaInput.value;
+    var s = parseInt(sistolicaInput.value, 10);
+    var d = parseInt(diastolicaInput.value, 10);
+    var p = parseInt(pulsoInput.value, 10);
+
+    if(!fecha){
+      mostrarErrores(["Elige una fecha."]);
+      return;
+    }
+    var errores = validar(s,d,p);
+    if(errores.length){
+      mostrarErrores(errores);
+      return;
+    }
+    mostrarErrores([]);
+
+    var duplicado = readings.find(function(r){
+      return r.date === fecha && r.horario === horarioActual && r.id !== editingId;
+    });
+    if(duplicado){
+      var ok = confirm("Ya hay un registro guardado para ese momento del día. ¿Quieres sustituirlo por este nuevo?");
+      if(!ok) return;
+      readings = readings.filter(function(r){ return r.id !== duplicado.id; });
+    }
+
+    if(editingId){
+      var idx = readings.findIndex(function(r){ return r.id === editingId; });
+      if(idx > -1){
+        readings[idx] = Object.assign({}, readings[idx], { date:fecha, horario:horarioActual, sistolica:s, diastolica:d, pulso:p });
+      }
+      showToast("Registro actualizado");
+    } else {
+      readings.push({ id:uid(), date:fecha, horario:horarioActual, sistolica:s, diastolica:d, pulso:p, creado:new Date().toISOString() });
+      showToast("Registro guardado");
+    }
+    saveReadings(readings);
+    resetForm();
+  });
+
+  // ---------- Toast ----------
+  var toastEl = document.getElementById("toast");
+  var toastTimer = null;
+  function showToast(msg){
+    toastEl.textContent = msg;
+    toastEl.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ toastEl.hidden = true; }, 2200);
+  }
+
+  // ---------- Historial ----------
+  var historialList = document.getElementById("historialList");
+  var historialVacio = document.getElementById("historialVacio");
+
+  function horarioOrden(h){ return HORARIOS.indexOf(h); }
+
+  function renderHistorial(){
+    historialList.innerHTML = "";
+    if(readings.length === 0){
+      historialVacio.hidden = false;
+      return;
+    }
+    historialVacio.hidden = true;
+
+    var porFecha = {};
+    readings.forEach(function(r){
+      if(!porFecha[r.date]) porFecha[r.date] = [];
+      porFecha[r.date].push(r);
+    });
+    var fechas = Object.keys(porFecha).sort().reverse();
+
+    fechas.forEach(function(fecha){
+      var grupo = document.createElement("div");
+      grupo.className = "date-group";
+      var h3 = document.createElement("h3");
+      h3.textContent = formatFechaLarga(fecha);
+      grupo.appendChild(h3);
+
+      var entradas = porFecha[fecha].slice().sort(function(a,b){
+        return horarioOrden(a.horario) - horarioOrden(b.horario);
+      });
+
+      entradas.forEach(function(r){
+        var cat = classify(r.sistolica, r.diastolica);
+        var entry = document.createElement("div");
+        entry.className = "entry";
+
+        var dot = document.createElement("div");
+        dot.className = "entry-dot";
+        dot.style.background = cat.color;
+
+        var main = document.createElement("div");
+        main.className = "entry-main";
+        main.innerHTML =
+          '<div class="entry-horario">'+HORARIO_LABEL[r.horario]+'</div>'+
+          '<div class="entry-values">'+r.sistolica+' / '+r.diastolica+' <span style="font-weight:400;font-size:14px;color:var(--text-secondary);">· '+r.pulso+' lpm</span></div>'+
+          '<div class="entry-cat" style="color:'+cat.color+'">'+cat.label+'</div>';
+
+        var actions = document.createElement("div");
+        actions.className = "entry-actions";
+        var btnEdit = document.createElement("button");
+        btnEdit.className = "icon-btn";
+        btnEdit.textContent = "✏️ Editar";
+        btnEdit.addEventListener("click", function(){ editarRegistro(r.id); });
+        var btnDel = document.createElement("button");
+        btnDel.className = "icon-btn danger";
+        btnDel.textContent = "🗑️ Eliminar";
+        btnDel.addEventListener("click", function(){ eliminarRegistro(r.id); });
+        actions.appendChild(btnEdit);
+        actions.appendChild(btnDel);
+
+        entry.appendChild(dot);
+        entry.appendChild(main);
+        entry.appendChild(actions);
+        grupo.appendChild(entry);
+      });
+
+      historialList.appendChild(grupo);
+    });
+  }
+
+  function editarRegistro(id){
+    var r = readings.find(function(x){ return x.id === id; });
+    if(!r) return;
+    editingId = id;
+    fechaInput.value = r.date;
+    setHorario(r.horario);
+    sistolicaInput.value = r.sistolica;
+    diastolicaInput.value = r.diastolica;
+    pulsoInput.value = r.pulso;
+    updateStatusPreview();
+    btnGuardar.textContent = "Guardar cambios";
+    btnCancelarEdicion.hidden = false;
+    switchTab("registrar");
+    window.scrollTo({ top:0, behavior:"smooth" });
+  }
+
+  function eliminarRegistro(id){
+    var ok = confirm("¿Eliminar este registro? No se puede deshacer.");
+    if(!ok) return;
+    readings = readings.filter(function(r){ return r.id !== id; });
+    saveReadings(readings);
+    renderHistorial();
+    showToast("Registro eliminado");
+  }
+
+  // ---------- Leyenda ----------
+  var legend = document.getElementById("legend");
+  CATEGORIES.forEach(function(cat){
+    var item = document.createElement("div");
+    item.className = "legend-item";
+    item.innerHTML = '<span class="legend-dot" style="background:'+cat.color+'"></span>'+cat.label;
+    legend.appendChild(item);
+  });
+
+  // ---------- Exportar ----------
+  var mesLabelEl = document.getElementById("mesLabel");
+  var btnMesAnterior = document.getElementById("mesAnterior");
+  var btnMesSiguiente = document.getElementById("mesSiguiente");
+  var sumCount = document.getElementById("sumCount");
+  var sumSis = document.getElementById("sumSis");
+  var sumDia = document.getElementById("sumDia");
+  var sumPul = document.getElementById("sumPul");
+
+  function mesActualStr(){
+    var d = new Date();
+    var m = (d.getMonth()+1).toString().padStart(2,"0");
+    return d.getFullYear()+"-"+m;
+  }
+
+  var mesSeleccionado = mesActualStr();
+
+  function registrosDelMes(mesStr){
+    return readings.filter(function(r){ return r.date.slice(0,7) === mesStr; })
+      .slice()
+      .sort(function(a,b){
+        if(a.date !== b.date) return a.date < b.date ? -1 : 1;
+        return horarioOrden(a.horario) - horarioOrden(b.horario);
+      });
+  }
+
+  function nombreMes(mesStr){
+    var partes = mesStr.split("-");
+    var d = new Date(parseInt(partes[0],10), parseInt(partes[1],10)-1, 1);
+    return capitalize(d.toLocaleDateString("es-ES", { month:"long", year:"numeric" }));
+  }
+
+  function formatFechaCorta(fechaStr){
+    var p = fechaStr.split("-");
+    return p[2] + "/" + p[1] + "/" + p[0];
+  }
+
+  function renderResumenExport(){
+    mesLabelEl.textContent = nombreMes(mesSeleccionado);
+    btnMesSiguiente.disabled = (mesSeleccionado >= mesActualStr());
+    var lista = registrosDelMes(mesSeleccionado);
+    sumCount.textContent = lista.length;
+    if(lista.length === 0){
+      sumSis.textContent = "—";
+      sumDia.textContent = "—";
+      sumPul.textContent = "—";
+      return;
+    }
+    var mS=0,mD=0,mP=0;
+    lista.forEach(function(r){ mS+=r.sistolica; mD+=r.diastolica; mP+=r.pulso; });
+    sumSis.textContent = Math.round(mS/lista.length) + " mmHg";
+    sumDia.textContent = Math.round(mD/lista.length) + " mmHg";
+    sumPul.textContent = Math.round(mP/lista.length) + " lpm";
+  }
+
+  function cambiarMes(delta){
+    var partes = mesSeleccionado.split("-");
+    var y = parseInt(partes[0],10);
+    var m = parseInt(partes[1],10) - 1;
+    var d = new Date(y, m + delta, 1);
+    var nuevo = d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0");
+    if(nuevo > mesActualStr()) return;
+    mesSeleccionado = nuevo;
+    renderResumenExport();
+  }
+  btnMesAnterior.addEventListener("click", function(){ cambiarMes(-1); });
+  btnMesSiguiente.addEventListener("click", function(){ cambiarMes(1); });
+
+  // Dibuja una tabla sencilla a mano, sin depender de plugins externos.
+  function dibujarTablaPDF(doc, columnas, filas, startY){
+    var margin = 14;
+    var pageWidth = doc.internal.pageSize.getWidth();
+    var pageHeight = doc.internal.pageSize.getHeight();
+    var rowH = 8;
+    var y = startY;
+
+    function cabecera(){
+      doc.setFillColor(43,93,99);
+      doc.rect(margin, y, pageWidth - margin*2, rowH, "F");
+      doc.setTextColor(255,255,255);
+      doc.setFontSize(8.5);
+      var x = margin;
+      columnas.forEach(function(col){
+        doc.text(col.label, x + 2, y + rowH - 2.5);
+        x += col.width;
+      });
+      y += rowH;
+      doc.setTextColor(30,42,42);
+    }
+
+    cabecera();
+    filas.forEach(function(fila, idx){
+      if(y + rowH > pageHeight - 24){
+        doc.addPage();
+        y = margin;
+        cabecera();
+      }
+      if(idx % 2 === 1){
+        doc.setFillColor(234,240,239);
+        doc.rect(margin, y, pageWidth - margin*2, rowH, "F");
+      }
+      doc.setFontSize(8);
+      var x = margin;
+      fila.forEach(function(valor, i){
+        doc.text(String(valor), x + 2, y + rowH - 2.5);
+        x += columnas[i].width;
+      });
+      y += rowH;
+    });
+
+    return y;
+  }
+
+  document.getElementById("btnExportar").addEventListener("click", function(){
+    try{
+      var mes = mesSeleccionado;
+      var lista = registrosDelMes(mes);
+      if(lista.length === 0){
+        alert("No hay registros guardados en ese mes.");
+        return;
+      }
+      if(!window.jspdf || !window.jspdf.jsPDF){
+        alert("No se ha podido cargar el generador de PDF. Cierra la app y vuelve a abrirla.");
+        return;
+      }
+
+      var jsPDFCtor = window.jspdf.jsPDF;
+      var doc = new jsPDFCtor();
+
+      doc.setFontSize(17);
+      doc.setTextColor(29,63,68);
+      doc.text("Control de tensión arterial", 14, 18);
+      doc.setFontSize(12);
+      doc.setTextColor(92,107,107);
+      doc.text(nombreMes(mes), 14, 26);
+
+      var columnas = [
+        { label:"Fecha", width:26 },
+        { label:"Momento", width:20 },
+        { label:"Sistólica", width:28 },
+        { label:"Diastólica", width:28 },
+        { label:"Pulso", width:20 },
+        { label:"Categoría", width:60 }
+      ];
+      var filas = lista.map(function(r){
+        var cat = classify(r.sistolica, r.diastolica);
+        return [
+          formatFechaCorta(r.date),
+          HORARIO_LABEL[r.horario].replace(/^\S+\s/, ""),
+          r.sistolica + " mmHg",
+          r.diastolica + " mmHg",
+          r.pulso + " lpm",
+          cat.label
+        ];
+      });
+
+      var finalY = dibujarTablaPDF(doc, columnas, filas, 32) + 8;
+
+      var mS=0,mD=0,mP=0;
+      lista.forEach(function(r){ mS+=r.sistolica; mD+=r.diastolica; mP+=r.pulso; });
+      doc.setFontSize(11);
+      doc.setTextColor(30,42,42);
+      doc.text("Media del mes: " + Math.round(mS/lista.length) + "/" + Math.round(mD/lista.length) + " mmHg · Pulso medio: " + Math.round(mP/lista.length) + " lpm", 14, finalY);
+
+      doc.setFontSize(9);
+      doc.setTextColor(140,150,150);
+      doc.text("Clasificación calibrada al objetivo para 65-79 años (<140/80 mmHg). No sustituye la valoración médica.", 14, finalY + 10);
+      doc.text("Generado con Mi Tensión el " + formatFechaLarga(todayStr()), 14, finalY + 16);
+
+      var filename = "tension_" + mes + ".pdf";
+      var blob = doc.output("blob");
+      var archivoCompartible = null;
+      try{ archivoCompartible = new File([blob], filename, { type:"application/pdf" }); }catch(e){ archivoCompartible = null; }
+
+      function mostrarPDF(){
+        try{
+          var url = URL.createObjectURL(blob);
+          window.open(url, "_blank");
+          showToast("PDF abierto. Usa el icono de compartir o guardar del visor.");
+        }catch(e1){
+          try{
+            doc.save(filename);
+            showToast("PDF descargado");
+          }catch(e2){
+            alert("No se ha podido abrir el PDF. Vuelve a intentarlo.");
+          }
+        }
+      }
+
+      if(archivoCompartible && navigator.canShare && navigator.canShare({ files:[archivoCompartible] })){
+        navigator.share({
+          files:[archivoCompartible],
+          title:"Control de tensión arterial",
+          text:nombreMes(mes)
+        }).then(function(){
+          showToast("PDF listo");
+        }).catch(function(err){
+          if(err && err.name === "AbortError") return;
+          mostrarPDF();
+        });
+      } else {
+        mostrarPDF();
+      }
+    } catch(err){
+      alert("No se ha podido generar el PDF. Vuelve a intentarlo.");
+    }
+  });
+
+  // ---------- Init ----------
+  resetForm();
+  renderHistorial();
+  renderResumenExport();
+
+  if("serviceWorker" in navigator){
+    window.addEventListener("load", function(){
+      navigator.serviceWorker.register("./service-worker.js").catch(function(){});
+    });
+  }
+})();
+</script>
+</body>
+</html>
