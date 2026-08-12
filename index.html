@@ -83,6 +83,28 @@
     font-size:14px;
     margin:0;
   }
+  .sync-badge{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    margin-top:10px;
+    padding:5px 12px;
+    border-radius:20px;
+    background:rgba(255,255,255,0.16);
+    font-size:12.5px;
+    font-weight:600;
+    color:#fff;
+  }
+  .sync-dot{
+    width:8px;
+    height:8px;
+    border-radius:50%;
+    background:#B8C6C5;
+    flex-shrink:0;
+  }
+  .sync-dot.ok{ background:#5FD38A; }
+  .sync-dot.pending{ background:#F2C14E; }
+  .sync-dot.off{ background:#E0736A; }
 
   main{ padding:16px 12px 28px; max-width:100%; }
 
@@ -374,6 +396,38 @@
     border-radius:50%;
   }
 
+  #miniChart{
+    width:100%;
+    margin-top:10px;
+  }
+  #miniChart svg{
+    display:block;
+    width:100%;
+    height:auto;
+  }
+  .chart-legend{
+    display:flex;
+    flex-wrap:wrap;
+    gap:14px;
+    margin-top:8px;
+  }
+  .chart-legend span{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    font-size:12.5px;
+    color:var(--text-secondary);
+  }
+  .chart-legend .chip{
+    width:14px;
+    height:3px;
+    border-radius:2px;
+    display:inline-block;
+  }
+  .chart-legend .chip.dash{
+    background:repeating-linear-gradient(to right, var(--text-secondary) 0 4px, transparent 4px 7px);
+  }
+
   /* Exportar */
   .month-picker{
     display:flex;
@@ -477,6 +531,10 @@
   <header class="topbar">
     <h1>Mi Tensión</h1>
     <p>Registro diario de tensión y pulso</p>
+    <div class="sync-badge" id="syncBadge">
+      <span class="sync-dot" id="syncDot"></span>
+      <span id="syncText">Conectando…</span>
+    </div>
   </header>
 
   <main>
@@ -540,6 +598,16 @@
 
     <!-- HISTORIAL -->
     <section id="tab-historial" class="panel">
+      <div class="card">
+        <label class="field-label">Últimas lecturas</label>
+        <div id="miniChart"></div>
+        <div class="chart-legend">
+          <span><i class="chip" style="background:#2B5D63"></i>Sistólica</span>
+          <span><i class="chip" style="background:#7D5A8C"></i>Diastólica</span>
+          <span><i class="chip dash"></i>Objetivo (140)</span>
+        </div>
+      </div>
+
       <div id="historialList"></div>
       <p class="empty-msg" id="historialVacio" hidden>Todavía no hay registros guardados.</p>
 
@@ -668,6 +736,25 @@
   }
   function guardarPendientes(arr){
     localStorage.setItem(PENDING_KEY, JSON.stringify(arr));
+    actualizarEstadoSync();
+  }
+
+  var conectadoStream = false;
+  function actualizarEstadoSync(){
+    var dot = document.getElementById("syncDot");
+    var txt = document.getElementById("syncText");
+    if(!dot || !txt) return;
+    var pendientes = cargarPendientes().length;
+    if(pendientes > 0){
+      dot.className = "sync-dot pending";
+      txt.textContent = pendientes === 1 ? "1 cambio pendiente" : pendientes + " cambios pendientes";
+    } else if(conectadoStream){
+      dot.className = "sync-dot ok";
+      txt.textContent = "Sincronizado";
+    } else {
+      dot.className = "sync-dot off";
+      txt.textContent = "Sin conexión";
+    }
   }
 
   function subirLectura(registro){
@@ -713,6 +800,28 @@
         r.id = id;
         return r;
       });
+      // Los registros aún no subidos (guardados sin conexión) no deben desaparecer
+      // de la vista solo porque el servidor todavía no los tiene.
+      var idsBorrados = cargarPendientes().filter(function(i){ return i.tipo === "borrar"; }).map(function(i){ return i.id; });
+      cargarPendientes().forEach(function(item){
+        if(item.tipo === "borrar"){
+          readings = readings.filter(function(r){ return r.id !== item.id; });
+        } else {
+          var idx = readings.findIndex(function(r){ return r.id === item.id; });
+          if(idx > -1) readings[idx] = item.datos; else readings.push(item.datos);
+        }
+      });
+      // Registros que ya existían en este móvil antes de tener sincronización (por
+      // ejemplo, de una versión anterior de la app) y que el servidor no tiene:
+      // se conservan y se vuelven a subir, para no perder historial al actualizar.
+      lecturasLocalesPrevias.forEach(function(r){
+        if(idsBorrados.indexOf(r.id) > -1) return;
+        var yaEsta = readings.some(function(x){ return x.id === r.id; });
+        if(!yaEsta){
+          readings.push(r);
+          subirLectura(r);
+        }
+      });
     } else {
       var id = path.replace(/^\//, "").split("/")[0];
       if(data === null || data === undefined){
@@ -729,7 +838,7 @@
   }
 
   function conectarSincronizacion(){
-    if(typeof EventSource === "undefined") return;
+    if(typeof EventSource === "undefined"){ actualizarEstadoSync(); return; }
     try{
       var es = new EventSource(FIREBASE_BASE + FIREBASE_PATH + ".json");
       es.addEventListener("put", function(e){
@@ -738,12 +847,25 @@
       es.addEventListener("patch", function(e){
         try{ var payload = JSON.parse(e.data); aplicarSnapshot(payload.path, payload.data); }catch(err){}
       });
-    }catch(e){ /* Sin conexión: se sigue usando la copia guardada en el móvil */ }
+      es.addEventListener("open", function(){
+        conectadoStream = true;
+        actualizarEstadoSync();
+        reintentarPendientes();
+      });
+      es.addEventListener("error", function(){
+        conectadoStream = false;
+        actualizarEstadoSync();
+      });
+    }catch(e){
+      actualizarEstadoSync();
+      /* Sin conexión: se sigue usando la copia guardada en el móvil */
+    }
   }
 
   window.addEventListener("online", reintentarPendientes);
 
   var readings = loadReadings();
+  var lecturasLocalesPrevias = readings.slice();
   var editingId = null;
   var horarioActual = defaultHorario();
 
@@ -889,10 +1011,9 @@
     var registro;
     if(editingId){
       var idx = readings.findIndex(function(r){ return r.id === editingId; });
-      if(idx > -1){
-        readings[idx] = Object.assign({}, readings[idx], { date:fecha, horario:horarioActual, sistolica:s, diastolica:d, pulso:p });
-        registro = readings[idx];
-      }
+      var base = idx > -1 ? readings[idx] : { id:editingId, creado:new Date().toISOString() };
+      registro = Object.assign({}, base, { date:fecha, horario:horarioActual, sistolica:s, diastolica:d, pulso:p });
+      if(idx > -1) readings[idx] = registro; else readings.push(registro);
       showToast("Registro actualizado");
     } else {
       registro = { id:uid(), date:fecha, horario:horarioActual, sistolica:s, diastolica:d, pulso:p, creado:new Date().toISOString() };
@@ -920,7 +1041,54 @@
 
   function horarioOrden(h){ return HORARIOS.indexOf(h); }
 
+  function renderGrafico(){
+    var contenedor = document.getElementById("miniChart");
+    if(!contenedor) return;
+
+    var datos = readings.slice().sort(function(a,b){
+      if(a.date !== b.date) return a.date < b.date ? -1 : 1;
+      return horarioOrden(a.horario) - horarioOrden(b.horario);
+    }).slice(-14);
+
+    if(datos.length < 2){
+      contenedor.innerHTML = '<p class="empty-msg" style="padding:18px 4px;">Añade al menos 2 registros para ver la evolución.</p>';
+      return;
+    }
+
+    var w = 320, h = 150, padL = 30, padR = 10, padT = 14, padB = 10;
+    var innerW = w - padL - padR, innerH = h - padT - padB;
+
+    var valores = [];
+    datos.forEach(function(r){ valores.push(r.sistolica, r.diastolica); });
+    var minV = Math.min.apply(null, valores.concat([60])) - 6;
+    var maxV = Math.max.apply(null, valores.concat([150])) + 6;
+
+    function xAt(i){ return datos.length === 1 ? padL + innerW/2 : padL + (i/(datos.length-1)) * innerW; }
+    function yAt(v){ return padT + innerH - ((v - minV)/(maxV - minV)) * innerH; }
+    function puntos(campo){
+      return datos.map(function(r,i){ return xAt(i).toFixed(1) + "," + yAt(r[campo]).toFixed(1); }).join(" ");
+    }
+
+    var yObjetivo = yAt(140);
+    var mostrarObjetivo = yObjetivo > padT - 2 && yObjetivo < h - padB + 2;
+
+    var svg = '<svg viewBox="0 0 '+w+' '+h+'" role="img" aria-label="Gráfico con la evolución de las últimas lecturas">';
+    if(mostrarObjetivo){
+      svg += '<line x1="'+padL+'" y1="'+yObjetivo.toFixed(1)+'" x2="'+(w-padR)+'" y2="'+yObjetivo.toFixed(1)+'" stroke="#9AA8A7" stroke-width="1" stroke-dasharray="4,4" />';
+    }
+    svg += '<polyline points="'+puntos("diastolica")+'" fill="none" stroke="#7D5A8C" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" />';
+    svg += '<polyline points="'+puntos("sistolica")+'" fill="none" stroke="#2B5D63" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" />';
+    datos.forEach(function(r,i){
+      svg += '<circle cx="'+xAt(i).toFixed(1)+'" cy="'+yAt(r.diastolica).toFixed(1)+'" r="3" fill="#7D5A8C" />';
+      svg += '<circle cx="'+xAt(i).toFixed(1)+'" cy="'+yAt(r.sistolica).toFixed(1)+'" r="3" fill="#2B5D63" />';
+    });
+    svg += '</svg>';
+
+    contenedor.innerHTML = svg;
+  }
+
   function renderHistorial(){
+    renderGrafico();
     historialList.innerHTML = "";
     if(readings.length === 0){
       historialVacio.hidden = false;
